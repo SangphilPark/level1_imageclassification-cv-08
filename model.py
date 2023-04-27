@@ -220,3 +220,53 @@ class DenseNet201(nn.Module):
     def forward(self, x):
         x = self.backbone(x)
         return x
+
+class EfficientNet_b1(nn.Module):
+    def __init__(self,num_classes):
+        super().__init__()
+        self.backbone = timm.models.efficientnet_b1(pretrained=True)
+        self.backbone.classifier = nn.Linear(1280, num_classes, bias=True)
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
+
+#pip install efficientnet_pytorch
+from efficientnet_pytorch import EfficientNet 
+class EfficientNet_b1_2(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.efficientNet = EfficientNet.from_pretrained('efficientnet-b1')
+        num_features = self.efficientNet._fc.in_features
+        self.efficientNet._fc = nn.Linear(num_features, num_classes)
+    def forward(self, x):
+        x = self.efficientNet(x)
+        return x
+    
+class Inception_ResNet_v2(nn.Module):
+    def __init__(self,num_classes):
+        super().__init__()
+        self.backbone = timm.models.inception_resnet_v2(pretrained=True)
+        self.backbone.classifier = nn.Linear(1536, num_classes, bias=True)
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
+
+    
+class ViT_tiny_p16_224(nn.Module):
+    def __init__(self,num_classes):
+        super().__init__()
+        self.backbone = timm.models.vit_tiny_patch16_224(pretrained=True)
+        self.backbone.head = nn.Linear(in_features=192, out_features=num_classes, bias=True)
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
+
+    
+class SwinTransformer_tiny_p4_224(nn.Module):
+    def __init__(self,num_classes):
+        super().__init__()
+        self.backbone = timm.models.swin_tiny_patch4_window7_224(pretrained=True)
+        self.backbone.head = nn.Linear(in_features=768, out_features=num_classes, bias=True)
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
