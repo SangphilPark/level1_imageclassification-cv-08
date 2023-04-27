@@ -261,6 +261,16 @@ class ViT_tiny_p16_224(nn.Module):
         x = self.backbone(x)
         return x
 
+
+class ViT_small_p16_384(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = timm.models.vit_small_patch16_384(pretrained=True)
+        self.backbone.head = nn.Linear(in_features=384, out_features=num_classes, bias=True)
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
+
     
 class SwinTransformer_tiny_p4_224(nn.Module):
     def __init__(self,num_classes):
