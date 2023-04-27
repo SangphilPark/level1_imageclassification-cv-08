@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-import timm
-
+from torchvision.models import *
 
 class BaseModel(nn.Module):
     def __init__(self, num_classes):
@@ -32,70 +31,177 @@ class BaseModel(nn.Module):
         x = self.avgpool(x)
         x = x.view(-1, 128)
         return self.fc(x)
-
-
-# Custom Model Template
-class MyModel(nn.Module):
-    def __init__(self, num_classes):
-        super().__init__()
-
-        """
-        1. ?úÑ??? Í∞ôÏù¥ ?Éù?Ñ±?ûê?ùò parameter ?óê num_claases Î•? ?è¨?ï®?ï¥Ï£ºÏÑ∏?öî.
-        2. ?ÇòÎßåÏùò Î™®Îç∏ ?ïÑ?Ç§?ÖçÏ≥êÎ?? ?îî?ûê?ù∏ ?ï¥Î¥ÖÎãà?ã§.
-        3. Î™®Îç∏?ùò output_dimension ??? num_classes Î°? ?Ñ§?†ï?ï¥Ï£ºÏÑ∏?öî.
-        """
-
-    def forward(self, x):
-        """
-        1. ?úÑ?óê?Ñú ?†ï?ùò?ïú Î™®Îç∏ ?ïÑ?Ç§?ÖçÏ≥êÎ?? forward propagation ?ùÑ ÏßÑÌñâ?ï¥Ï£ºÏÑ∏?öî
-        2. Í≤∞Í≥ºÎ°? ?Çò?ò® output ?ùÑ return ?ï¥Ï£ºÏÑ∏?öî
-        """
-        return x
-
+    
 
 class VGG19(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
-
-        """
-        1. ?úÑ??? Í∞ôÏù¥ ?Éù?Ñ±?ûê?ùò parameter ?óê num_claases Î•? ?è¨?ï®?ï¥Ï£ºÏÑ∏?öî.
-        2. ?ÇòÎßåÏùò Î™®Îç∏ ?ïÑ?Ç§?ÖçÏ≥êÎ?? ?îî?ûê?ù∏ ?ï¥Î¥ÖÎãà?ã§.
-        3. Î™®Îç∏?ùò output_dimension ??? num_classes Î°? ?Ñ§?†ï?ï¥Ï£ºÏÑ∏?öî.
-        """
         self.backbone = vgg19_bn()
 
-        # self.backbone.features.requires_grad_(requires_grad=False) # feature Î∂?Î∂ÑÏñºÎ¶¨Í∏∞
+        #self.backbone.features.requires_grad_(requires_grad=False) # feature Î∂ÄÎ∂ÑÏñºÎ¶¨Í∏∞
 
         self.backbone.classifier = nn.Sequential(
-            nn.Linear(25088, 4096, bias=True),
+            nn.Linear(25088,4096, bias=True),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.5),
-            nn.Linear(4096, 4096, bias=True),
+            nn.Linear(4096,4096,bias=True),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.5),
-            nn.Linear(4096, num_classes, bias=True)
+            nn.Linear(4096,num_classes,bias=True)
         )
+        
 
     def forward(self, x):
-        """
-        1. ?úÑ?óê?Ñú ?†ï?ùò?ïú Î™®Îç∏ ?ïÑ?Ç§?ÖçÏ≥êÎ?? forward propagation ?ùÑ ÏßÑÌñâ?ï¥Ï£ºÏÑ∏?öî
-        2. Í≤∞Í≥ºÎ°? ?Çò?ò® output ?ùÑ return ?ï¥Ï£ºÏÑ∏?öî
-        """
         x = self.backbone(x)
         return x
 
 
-class vit32(nn.Module):
+""" class VGG19LN(nn.Module):
     def __init__(self, num_classes):
-        super().__init__()
+        super(VGG19LN, self).__init__()
 
-        self.backbone = timm.models.vit_base_patch16_224(pretrained=True)
+        # Pre-trained VGG19bn model
+        self.vgg19ln = vgg19_bn(pretrained=True)
 
-        self.backbone.head = nn.Linear(
-            in_features=768, out_features=num_classes, bias=True)
+        # Replace batch normalization layers with layer normalization layers
+        for name, module in self.vgg19ln.named_modules():
+            if isinstance(module, nn.BatchNorm2d):
+                new_module = nn.LayerNorm(module.num_features)
+                new_module.weight.data = module.weight.data.clone().detach().view(-1)
+                new_module.bias.data = module.bias.data.clone().detach().view(-1)
+                self._replace_module(name, new_module, self.vgg19ln)
+
+        # Freeze all layers
+        for param in self.vgg19ln.parameters():
+            param.requires_grad = False
+    
+        self.vgg19ln.classifier = nn.Sequential(
+            nn.Linear(51277,4096, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,4096,bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,num_classes,bias=True)
+        )
 
     def forward(self, x):
+        x = x.unsqueeze(0)  # [64, 64, 224, 224] -> [1, 64, 224, 224]
+        x = F.interpolate(x, size=(224, 224), mode='bilinear', align_corners=True)
+        x = self.vgg19ln.features(x)
+        x = self.vgg19ln.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = x.view(x.size(0), x.size(1), 1, 1)  # shapeÏùÑ (batch_size, num_features, 1, 1)Î°ú Î≥ÄÍ≤Ω
+        x = self.vgg19ln.classifier(x)
+        return x
 
+    def _replace_module(self, name, new_module, parent_module):
+        #Replaces a module with a new one.
+        parent_name, base_name = name.rsplit('.', 1)
+        parent_module = self._get_module(parent_name, parent_module)
+        parent_module._modules[base_name] = new_module
+
+    def _get_module(self, name, parent_module):
+        #Gets a module from its name.
+        if '.' in name:
+            parent_name, base_name = name.rsplit('.', 1)
+            parent_module = self._get_module(parent_name, parent_module)
+            return parent_module._modules[base_name]
+        else:
+            return parent_module._modules[name]
+
+"""
+ 
+class VGG16(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = vgg16_bn()
+
+        #self.backbone.features.requires_grad_(requires_grad=False) # feature Î∂ÄÎ∂ÑÏñºÎ¶¨Í∏∞
+
+        self.backbone.classifier = nn.Sequential(
+            nn.Linear(25088,4096, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,4096,bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,num_classes,bias=True)
+        )
+        
+
+    def forward(self, x):
         x = self.backbone(x)
+        return x
+    
+class ResNet50(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = resnet50(pretrained=True)
+        self.backbone.classifier = nn.Sequential(
+            nn.Linear(25088,4096, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,4096,bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,num_classes,bias=True)   
+        )
+    
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
 
+class ResNet101(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = resnet101()
+        self.backbone.classifier = nn.Sequential(
+            nn.Linear(25088,4096, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,4096,bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096,num_classes,bias=True)   
+        )
+    
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
+
+class DenseNet121(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = densenet121(pretrained=True)
+        self.backbone.classifier = nn.Sequential(
+            nn.Linear(1024,512, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(512,256,bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(256,num_classes,bias=True)   
+        )
+    
+    def forward(self, x):
+        x = self.backbone(x)
+        return x
+
+class DenseNet201(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = densenet201(pretrained=True)
+        self.backbone.classifier = nn.Sequential(
+            nn.Linear(1920,1024, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(1024,256,bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5),
+            nn.Linear(256,num_classes,bias=True)   
+        )
+    
+    def forward(self, x):
+        x = self.backbone(x)
         return x
