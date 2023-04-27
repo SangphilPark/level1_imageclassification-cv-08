@@ -280,3 +280,23 @@ class SwinTransformer_tiny_p4_224(nn.Module):
     def forward(self, x):
         x = self.backbone(x)
         return x
+
+
+class SwinTransformer_large_p4_384(nn.Module): # 최종
+    def __init__(self, num_classes):
+        """
+        Args:
+            num_classes (int): Output Channel
+        """
+        super().__init__()
+        # Swin Transformer 모델 불러오기
+        self.backbone = timm.create_model('swin_large_patch4_window12_384', pretrained=True)
+        head_in_features = self.backbone.head.in_features
+        self.backbone.head = nn.Linear(in_features=head_in_features, out_features=num_classes, bias=True)
+
+    def forward(self, x):
+        """
+        Swin_Large Model forward propagation
+        """
+        x = self.backbone(x)
+        return x
