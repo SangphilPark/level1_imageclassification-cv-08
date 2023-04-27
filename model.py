@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import timm
 from torchvision.models import *
 
 class BaseModel(nn.Module):
@@ -31,8 +32,8 @@ class BaseModel(nn.Module):
         x = self.avgpool(x)
         x = x.view(-1, 128)
         return self.fc(x)
-    
 
+    
 class VGG19(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
@@ -55,6 +56,20 @@ class VGG19(nn.Module):
         x = self.backbone(x)
         return x
 
+class vit32(nn.Module):
+    def __init__(self,num_classes):
+        super().__init__()
+
+        self.backbone = timm.models.vit_base_patch16_224(pretrained=True)
+
+        self.backbone.head = nn.Linear(in_features=768, out_features=num_classes, bias=True)
+
+    def forward(self, x):
+
+        x = self.backbone(x)
+
+        return x
+    
 
 """ class VGG19LN(nn.Module):
     def __init__(self, num_classes):
@@ -155,15 +170,15 @@ class ResNet50(nn.Module):
 class ResNet101(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
-        self.backbone = resnet101()
-        self.backbone.classifier = nn.Sequential(
-            nn.Linear(25088,4096, bias=True),
+        self.backbone = resnet101(pretrained=True)
+        self.backbone.fc = nn.Sequential(
+            nn.Linear(2048,1024, bias=True),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.5),
-            nn.Linear(4096,4096,bias=True),
+            nn.Linear(1024,512,bias=True),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.5),
-            nn.Linear(4096,num_classes,bias=True)   
+            nn.Linear(512,num_classes,bias=True) 
         )
     
     def forward(self, x):
