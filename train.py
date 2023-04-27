@@ -19,6 +19,10 @@ from torch.utils.tensorboard import SummaryWriter
 from dataset import MaskBaseDataset
 from loss import create_criterion
 
+# AMP: 빠르게 만들어줌 >> 224가 아닌 더 큰 사이즈의 이미지로 진행 가능
+from torch.cuda.amp import grad_scaler, autocast_mode
+from timm.scheduler.step_lr import StepLRScheduler
+
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0, path='checkpoint.pt'):
         """
@@ -201,6 +205,9 @@ def train(data_dir, model_dir, args):
     best_val_loss = np.inf
     early_stopping = EarlyStopping(patience=3, verbose=True)
 
+    use_amp = True
+    scaler = grad_scaler.GradScaler(enabled=use_amp)
+
     for epoch in range(args.epochs):
         # train loop
         model.train()
@@ -209,17 +216,34 @@ def train(data_dir, model_dir, args):
 
         for idx, train_batch in enumerate(train_loader):
             inputs, labels = train_batch
-            inputs = inputs.to(device)
-            labels = labels.to(device)
+
+            # non_blocking (빨라짐)
+            inputs = inputs.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
 
             optimizer.zero_grad()
 
-            outs = model(inputs)
-            preds = torch.argmax(outs, dim=-1)
-            loss = criterion(outs, labels)
+            ############## AMP 사용 O ##############################
+            # Runs the forward pass with autocasting.
+            with autocast_mode.autocast(enabled=use_amp):
+                outs = model(inputs)
+                preds = torch.argmax(outs, dim=-1)
+                loss = criterion(outs, labels)
 
-            loss.backward()
-            optimizer.step()
+            # Scales Loss.
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            #######################################################
+            
+            ############## AMP 사용 X ##############################
+            # outs = model(inputs)
+            # preds = torch.argmax(outs, dim=-1)
+            # loss = criterion(outs, labels)
+
+            # loss.backward()
+            # optimizer.step()
+            ########################################################
 
             loss_value += loss.item()
             matches += (preds == labels).sum().item()
