@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset, Subset, random_split
-from torchvision.transforms import Resize, ToTensor, Normalize, Compose, CenterCrop, ColorJitter
+from torchvision.transforms import Resize, ToTensor, Normalize, Compose, CenterCrop, ColorJitter, RandomErasing
 
 IMG_EXTENSIONS = [
     ".jpg", ".JPG", ".jpeg", ".JPEG", ".png",
@@ -26,6 +26,22 @@ class BaseAugmentation:
             Resize(resize, Image.BILINEAR),
             ToTensor(),
             Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+    
+class CustomAugmentation:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = Compose([
+            CenterCrop((320, 256)),
+            Resize(resize, Image.BILINEAR),
+            #RandomHorizontalFlip(0.5),
+            ColorJitter(0.1, 0.1, 0.1, 0.1),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+            AddGaussianNoise(),
+            RandomErasing(p=0.1, value='random'),
         ])
 
     def __call__(self, image):
@@ -78,9 +94,9 @@ class AgeLabels(int, Enum):
         except Exception:
             raise ValueError(f"Age value should be numeric, {value}")
 
-        if value < 30:
+        if value < 29:
             return cls.YOUNG
-        elif value < 60:
+        elif value < 57:
             return cls.MIDDLE
         else:
             return cls.OLD
@@ -89,7 +105,7 @@ class AgeLabels(int, Enum):
 class MaskBaseDataset(Dataset):
     num_classes = 3 * 2 * 3
 
-    # ?ç∞?ù¥?Ñ∞ Ï¶ùÌè≠?úºÎ°? ?åå?ùºÎ™? Ï∂îÍ??
+    # ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ Ï¶ùÌè≠?ÔøΩÔøΩÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩÔøΩ? Ï∂îÔøΩ??
     _file_names = {
         "mask1": MaskLabels.MASK,
         "mask2": MaskLabels.MASK,
@@ -165,7 +181,7 @@ class MaskBaseDataset(Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        assert self.transform is not None, ".set_tranform Î©îÏÜå?ìúÎ•? ?ù¥?ö©?ïò?ó¨ transform ?ùÑ Ï£ºÏûÖ?ï¥Ï£ºÏÑ∏?öî"
+        assert self.transform is not None, ".set_tranform Î©îÏÜå?ÔøΩÔøΩÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ transform ?ÔøΩÔøΩ Ï£ºÏûÖ?ÔøΩÔøΩÏ£ºÏÑ∏?ÔøΩÔøΩ"
 
         image = self.read_image(index)
         mask_label = self.get_mask_label(index)
@@ -259,13 +275,13 @@ class MaskMultiLabelDataset(Dataset):
     def setup(self):
         profiles = os.listdir(self.data_dir)
         for profile in profiles:
-            if profile.startswith("."):  # "." Î°? ?ãú?ûë?ïò?äî ?åå?ùº??? Î¨¥Ïãú?ï©?ãà?ã§
+            if profile.startswith("."):  # "." ÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ ?ÔøΩÔøΩ?ÔøΩÔøΩ??? Î¨¥Ïãú?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ
                 continue
 
             img_folder = os.path.join(self.data_dir, profile)
             for file_name in os.listdir(img_folder):
                 _file_name, ext = os.path.splitext(file_name)
-                if _file_name not in self._file_names:  # "." Î°? ?ãú?ûë?ïò?äî ?åå?ùº Î∞? invalid ?ïú ?åå?ùº?ì§??? Î¨¥Ïãú?ï©?ãà?ã§
+                if _file_name not in self._file_names:  # "." ÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ ?ÔøΩÔøΩ?ÔøΩÔøΩ ÔøΩ? invalid ?ÔøΩÔøΩ ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ??? Î¨¥Ïãú?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ
                     continue
 
                 # (resized_data, 000004_male_Asian_54, mask1.jpg)
@@ -300,7 +316,7 @@ class MaskMultiLabelDataset(Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        assert self.transform is not None, ".set_tranform Î©îÏÜå?ìúÎ•? ?ù¥?ö©?ïò?ó¨ transform ?ùÑ Ï£ºÏûÖ?ï¥Ï£ºÏÑ∏?öî"
+        assert self.transform is not None, ".set_tranform Î©îÏÜå?ÔøΩÔøΩÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ transform ?ÔøΩÔøΩ Ï£ºÏûÖ?ÔøΩÔøΩÏ£ºÏÑ∏?ÔøΩÔøΩ"
         image = self.read_image(index)
         mask_label = self.get_mask_label(index)
         gender_label = self.get_gender_label(index)
@@ -348,10 +364,10 @@ class MaskMultiLabelDataset(Dataset):
 
     def split_dataset(self) -> Tuple[Subset, Subset]:
         """
-        ?ç∞?ù¥?Ñ∞?Öã?ùÑ train Í≥? val Î°? ?Çò?àï?ãà?ã§,
-        pytorch ?Ç¥Î∂??ùò torch.utils.data.random_split ?ï®?àòÎ•? ?Ç¨?ö©?ïò?ó¨
-        torch.utils.data.Subset ?Å¥?ûò?ä§ ?ëòÎ°? ?Çò?àï?ãà?ã§.
-        Íµ¨ÌòÑ?ù¥ ?ñ¥?†µÏß? ?ïä?úº?ãà Íµ¨Í??Îß? ?òπ??? IDE (e.g. pycharm) ?ùò navigation Í∏∞Îä•?ùÑ ?Üµ?ï¥ ÏΩîÎìúÎ•? ?ïú Î≤? ?ùΩ?ñ¥Î≥¥Îäî Í≤ÉÏùÑ Ï∂îÏ≤ú?ìúÎ¶ΩÎãà?ã§^^
+        ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ train ÔøΩ? val ÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ,
+        pytorch ?ÔøΩÔøΩÔøΩ??ÔøΩÔøΩ torch.utils.data.random_split ?ÔøΩÔøΩ?ÔøΩÔøΩÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ
+        torch.utils.data.Subset ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ ?ÔøΩÔøΩÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ.
+        Íµ¨ÌòÑ?ÔøΩÔøΩ ?ÔøΩÔøΩ?ÔøΩÔøΩÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩ?ÔøΩÔøΩ Íµ¨ÔøΩ??ÔøΩ? ?ÔøΩÔøΩ??? IDE (e.g. pycharm) ?ÔøΩÔøΩ navigation Í∏∞Îä•?ÔøΩÔøΩ ?ÔøΩÔøΩ?ÔøΩÔøΩ ÏΩîÎìúÔøΩ? ?ÔøΩÔøΩ ÔøΩ? ?ÔøΩÔøΩ?ÔøΩÔøΩÎ≥¥Îäî Í≤ÉÏùÑ Ï∂îÏ≤ú?ÔøΩÔøΩÎ¶ΩÎãà?ÔøΩÔøΩ^^
         """
         n_val = int(len(self) * self.val_ratio)
         n_train = len(self) - n_val
@@ -360,6 +376,11 @@ class MaskMultiLabelDataset(Dataset):
 
 
 class MaskSplitByProfileDataset(MaskBaseDataset):
+    """
+        train / val ÎÇòÎàå Îïå random -> ratioÎ•º Í≥†Î†§Ìï¥ÏÑú ÏÇ¨Îûå(profile)ÏùÑ Í∏∞Ï§ÄÏúºÎ°ú ÎÇòÎàî
+        Ïù¥ÌõÑ Subset ÏúºÎ°ú dataset ÏùÑ Î∂ÑÍ∏∞
+    """
+    # def __init__(self, data_dir, mean=(0.47237855, 0.42983933, 0.40898423), std=(0.24123258, 0.24687928, 0.49184509), val_ratio=0.2):
     def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.indices = defaultdict(list)
         super().__init__(data_dir, mean, std, val_ratio)
@@ -378,8 +399,7 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
 
     def setup(self):
         profiles = os.listdir(self.data_dir)
-        profiles = [
-            profile for profile in profiles if not profile.startswith(".")]
+        profiles = [profile for profile in profiles if not profile.startswith(".")]
         split_profiles = self._split_profile(profiles, self.val_ratio)
         under_sampling = list(range(18, 30)) + list(range(48, 60))
 
@@ -391,16 +411,14 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
 
                 id, gender, race, age = profile.split("_")
                 img_list = os.listdir(img_folder)
-                if int(age) in undersample_list and phase == "train":
-                    img_list = set(img_list) - \
-                        set(random.sample(img_list[1:6], k=4))
+                if int(age) in under_sampling and phase == "train":
+                    img_list = set(img_list) - set(random.sample(img_list[1:6], k=4))
 
                 for file_name in os.listdir(img_folder):
                     _file_name, ext = os.path.splitext(file_name)
-                    if _file_name not in self._file_names:  # "." Î°? ?ãú?ûë?ïò?äî ?åå?ùº Î∞? invalid ?ïú ?åå?ùº?ì§??? Î¨¥Ïãú?ï©?ãà?ã§
+                    if _file_name not in self._file_names:  # invalid Ìïú ÌååÏùº Î¨¥Ïãú
                         continue
 
-                    # (resized_data, 000004_male_Asian_54, mask1.jpg)
                     img_path = os.path.join(self.data_dir, profile, file_name)
                     mask_label = self._file_names[_file_name]
 
