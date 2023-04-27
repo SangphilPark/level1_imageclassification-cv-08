@@ -57,7 +57,12 @@ def inference(data_dir, model_dir, output_dir, args):
     with torch.no_grad():
         for idx, images in enumerate(loader):
             images = images.to(device)
-            pred = model(images)
+
+            # 4가지 augmentation에 대하여 예측
+            pred = model(images) / 4
+            pred += model(torch.flip(images, dims=(-1,))) / 4
+            pred += model(F.rotate(images, angle=30)) / 4
+            pred += model(F.rotate(images, angle=-30)) / 4
 
             (mask_outs, gender_outs, age_outs) = torch.split(
                 pred, [3, 2, 3], dim=1)
