@@ -1,5 +1,9 @@
 
 # 🏆 마스크 착용 상태 분류를 위한 Image Classification
+<br />
+
+## 🏅 개인(박상필) Wrap-Up Report   
+- [개인 Wrap-Up Report👑](https://drive.google.com/file/d/19A12aby7XPSMObYBQjJ173YqZmBPi1tG/view?usp=drive_link)
 
 ## 🥇 팀 구성원
 <div align="center">
